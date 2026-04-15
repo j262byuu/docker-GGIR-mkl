@@ -118,6 +118,6 @@ Additionally, Part 1 reads each file twice (`g.calibrate` + `g.getmeta`), which 
 
 ## Contact
 
-Feel free to reach out on [LinkedIn](https://www.linkedin.com/in/xiaoyu-zong-a92410290)
+Feel free to reach out on [LinkedIn](https://www.linkedin.com/in/xiaoyu-zong-0a733ba0/)
 
 欢迎研究者联系交流，LinkedIn 加我或者发邮件都可以。
