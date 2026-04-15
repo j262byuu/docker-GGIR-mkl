@@ -2,15 +2,18 @@
 # GGIR Docker Image
 # Base: rocker/r-ver (Ubuntu-based, minimal, version-locked)
 # Target: batch processing on HPC (Singularity/Apptainer compatible)
-# GGIR source: GitHub release tag (wadpac/GGIR)
+# GGIR source: GitHub master (wadpac/GGIR), always latest version
 # Parallel: foreach + doParallel (fork-based, no extra system deps needed)
 # BLAS/LAPACK: Intel MKL (Math Kernel Library) for hardware acceleration
 # =============================================================================
 FROM rocker/r-ver:4.5.3
-
 LABEL maintainer="j262byuu@gmail.com" \
       description="GGIR for batch accelerometer data processing with Intel MKL"
-
+# -----------------------------------------------------------------------------
+# Locale: set UTF-8 to avoid edge cases in GGIR's timestamp parsing
+# -----------------------------------------------------------------------------
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
 # -----------------------------------------------------------------------------
 # MKL & Threading Environment Variables (CRITICAL FOR GGIR)
 # Restrict MKL to 1 thread per R process to prevent CPU oversubscription.
@@ -21,7 +24,6 @@ LABEL maintainer="j262byuu@gmail.com" \
 ENV MKL_NUM_THREADS=1
 ENV OMP_NUM_THREADS=1
 ENV MKL_THREADING_LAYER=GNU
-
 # -----------------------------------------------------------------------------
 # System dependencies
 # Rationale for each:
@@ -43,20 +45,23 @@ RUN apt-get update \
  && update-alternatives --set libblas.so.3-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/libmkl_rt.so \
  && update-alternatives --set liblapack.so.3-x86_64-linux-gnu /usr/lib/x86_64-linux-gnu/libmkl_rt.so \
  && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
-
+ && rm -rf /var/lib/apt/lists/* \
+      /usr/share/doc/intel-mkl* \
+      /usr/share/man/man*
 # -----------------------------------------------------------------------------
 # R packages
+# - Rcpp: required for GGIR's Rcpp-accelerated ENMO path (j262byuu/GGIR fork)
+#         and as a build dependency for packages with compiled code
 # - remotes: needed to install from GitHub
-# - GGIR: pinned to latest commit at master
+# - GGIR: installed from official upstream (wadpac/GGIR)
+#         To use the Rcpp-optimized fork instead:
+#         remotes::install_github("j262byuu/GGIR@feature/rcpp-enmo", ...)
 # - dependencies=NA: only Imports + Depends, skips Suggests
-#   (knitr, rmarkdown, testthat, covr, actilifecounts, readxl not needed)
 # - doParallel/foreach pulled in automatically as GGIR Imports
 # -----------------------------------------------------------------------------
-RUN install2.r --error --skipinstalled remotes \
+RUN install2.r --error --skipinstalled remotes Rcpp \
  && Rscript -e 'remotes::install_github("wadpac/GGIR", dependencies = NA, upgrade = "never")' \
  && rm -rf /tmp/downloaded_packages /tmp/Rtmp*
-
 # -----------------------------------------------------------------------------
 # Singularity/Apptainer notes
 # - No USER directive: Singularity maps container root to calling user
