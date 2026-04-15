@@ -1,18 +1,17 @@
-# docker-GGIR-mkl
+# docker-GGIR
 
-A hardware-accelerated Docker image for GGIR (j262byuu/accelerometer). Optimized for high-throughput batch processing on HPC.
+A Docker image for [GGIR](https://wadpac.github.io/GGIR/) accelerometer data processing (`j262byuu/accelerometer`), optimized for high-throughput batch processing on HPC clusters.
 
-## 🙏 Acknowledgements / 致谢
+## Acknowledgements
 
-First and foremost, profound thanks to **Vincent van Hees** and the entire [wadpac](https://github.com/wadpac) community. The original [GGIR R package](https://wadpac.github.io/GGIR/) is a NOVEL contribution to actigraphy and public health data science. This Docker image is merely a hardware-optimized wrapper built entirely upon their incredible foundational work. 
+This image is built entirely upon the [GGIR R package](https://wadpac.github.io/GGIR/) by **Vincent van Hees** and the [wadpac](https://github.com/wadpac) community. GGIR is a foundational contribution to actigraphy and physical activity research.
 
-When using this image, **please ensure you cite the original GGIR publications** (doi: 10.5281/zenodo.18798867).
+When using this image, **please cite the original GGIR publications** (doi: 10.5281/zenodo.1051064).
 
----
+## Quick Start
 
-## ⚡ Quick Start
+**Docker (Local / Cloud VMs)**
 
-### Docker (Local / Cloud VMs)
 ```bash
 docker run --rm \
   -v /your/data:/data \
@@ -21,49 +20,95 @@ docker run --rm \
   Rscript /data/GGIR.R
 ```
 
-### Singularity / Apptainer (HPC Clusters)
+**Singularity / Apptainer (HPC Clusters)**
+
 ```bash
-# 1. Pull the image
+# Pull the image
 apptainer pull ggir.sif docker://j262byuu/accelerometer:04022026
 
-# 2. Execute on compute node (remember to bind mount your directories)
-apptainer exec -B /your/data:/data -B /your/output:/output ggir.sif Rscript /data/GGIR.R
+# Execute on compute node
+apptainer exec \
+  -B /your/data:/data \
+  -B /your/output:/output \
+  ggir.sif Rscript /data/GGIR.R
 ```
 
----
+## Available Tags
 
-## 🏷 Available Tags
+**`04022026` (Latest)** — Intel MKL integrated as the default BLAS/LAPACK backend. GGIR installed from official upstream (wadpac/GGIR). `MKL_NUM_THREADS` is locked to 1 by default to prevent thread contention during GGIR's file-level parallelization.
 
-* **`tag 04022026` (Latest):** Hardware-accelerated version! Integrated **Intel MKL** as the default BLAS/LAPACK backend. This significantly speeds up matrix-heavy operations like auto-calibration (`g.calibrate`) and vector math. By default, `MKL_NUM_THREADS` is locked to 1 (you can manually bypass this via docker parameters) to prevent thread contention during GGIR's native file-level parallelization.
-* **`tag 03262026`:** Rebuilt from scratch using a minimal Dockerfile (now open source). Base image upgraded to `rocker/r-ver:4.5.3`. `mMARCH.AC` dropped. Image size reduced from 4.36 GB to 1.8 GB. GGIR pinned to 3.3-4.
-* **`tag 03092026`:** Updated GGIR to 3.3.4. Updated `mMARCH.AC` to 3.3.4.0. *Note: I recommend stopping use of any version prior to 3.2.7 due to a start time bug ([issue #1311](https://github.com/wadpac/GGIR/issues/1311)). This affects both part 5 and 6.*
-* **`tag 10142025`:** Updated GGIR to 3.3.1. Urgent fix for part 6 failures when multithreading is enabled.
-* **`tag 09182025`:** Updated GGIR to 3.3.0. The new auto-correct sleep guider is a notable addition.
-* **`tag 07242025`:** Updated GGIR to 3.2.9. Docker image was flattened to reduce size.
+**`03262026`** — Rebuilt from scratch with a minimal Dockerfile. Base image upgraded to `rocker/r-ver:4.5.3`. `mMARCH.AC` dropped. Image size reduced from 4.36 GB to 1.8 GB. GGIR pinned to 3.3-4.
 
-### Archived Tags
-The following tags have been removed from this repository because they are old versions. They are listed here for reference only:
-* `tag 05022025`: GGIR 3.2.6. Sleep regularity index (comparable to sleepreg) was introduced.
-* `tag 01112025`: GGIR 3.1.10.
-* `tag 12042024`: GGIR 3.1.7. Notable addition of `part2_eventsummary.csv`.
-* `tag 11152024`: GGIR 3.1.6 (GitHub-only release; nonwear_range_threshold was reset to 150).
-* `tag 10112024`: Added fields for image.plot in module 5 and system-level pandoc for Rmd files.
-* `tag 09172024`: Added rmarkdown and r.jive.
-* `tag 09132024`: GGIR 3.1.4 and mMARCH.AC 2.9.4.0. Fixed `read.xlsx` errors.
+**`03092026`** — GGIR 3.3.4. Updated `mMARCH.AC` to 3.3.4.0. Note: avoid versions prior to 3.2.7 due to a start time bug ([issue #1311](https://github.com/wadpac/GGIR/issues/1311)) affecting parts 5 and 6.
 
----
+**`10142025`** — GGIR 3.3.1. Fix for part 6 failures with multithreading enabled.
 
-## 🗺 Future Roadmap: Pushing the Limits
+**`09182025`** — GGIR 3.3.0. Added auto-correct sleep guider.
 
-My goal is to systematically eliminate bottlenecks in CPU math, memory bandwidth, and I/O for massive-scale actigraphy pipelines.
+**`07242025`** — GGIR 3.2.9. Docker image flattened to reduce size.
 
-* [x] **Phase 1: CPU Math Saturation.** Replaced native R BLAS/LAPACK with Intel MKL.
-* [ ] **Phase 2: Rcpp Memory Optimization for ENMO.** Replacing GGIR's native `cumsum` epoch aggregation with a zero-allocation sliding window algorithm in C++ (`Rcpp`) to eliminate RAM bandwidth choking.
-* [ ] **Phase 3: Zero-Overhead Data I/O.** Developing an external preprocessing pipeline to strip text-based time-column parsing entirely before data hits GGIR.
+<details>
+<summary>Archived Tags</summary>
 
----
+These tags have been removed from the registry. Listed for reference only.
 
-## 📬 Contact
-Fell free to reach me at LinkedIn
+- `05022025`: GGIR 3.2.6. Sleep regularity index introduced.
+- `01112025`: GGIR 3.1.10.
+- `12042024`: GGIR 3.1.7. Added `part2_eventsummary.csv`.
+- `11152024`: GGIR 3.1.6 (GitHub-only; nonwear_range_threshold reset to 150).
+- `10112024`: Added image.plot fields in module 5 and system-level pandoc.
+- `09172024`: Added rmarkdown and r.jive.
+- `09132024`: GGIR 3.1.4 and mMARCH.AC 2.9.4.0.
 
-为了安全我锁死了 MKL 的线程数。欢迎研究者联系交流，直接 LinkedIn 加我就行，当然给我发email我也欢迎
+</details>
+
+## Performance Optimization Roadmap
+
+Systematic profiling of GGIR Part 1 on a 251 MB Axivity CWA file (7-day, 100Hz) revealed the following time distribution:
+
+| Component | Time | Share |
+|---|---|---|
+| `GGIRread::readAxivity` (I/O + CWA parsing) | 337 s | 75% |
+| `g.applymetrics` (ENMO epoch aggregation) | 33 s | 7% |
+| `g.calibrate` (auto-calibration) | 5.7 s | 1% |
+| Other (non-wear detection, data management) | 76 s | 17% |
+| **Total** | **451 s** | |
+
+### Phase 1: Intel MKL ✅
+
+Replaced default R BLAS/LAPACK with Intel MKL. After profiling GGIR's source code, I confirmed that GGIR's core computations (ENMO, epoch aggregation, non-wear detection) are element-wise vector operations that do not call BLAS. The `g.calibrate` ellipsoid fitting uses `lm.wfit` (QR decomposition), but on matrices of only 3 columns aka too small for MKL to make a measurable difference. MKL remains in the image for downstream R workflows (mixed-effects models, PCA, large-scale regression) that do benefit from optimized linear algebra.
+
+### Phase 2: Fused Rcpp ENMO Path ✅ (validated, pending upstream merge)
+
+Replaced `g.applymetrics`' ENMO computation chain (`EuclideanNorm` → subtract → clamp → `cumsum`-based epoch averaging) with a single-pass C++ implementation (`enmoFusedCpp`). Fork: [j262byuu/GGIR@feature/rcpp-enmo](https://github.com/j262byuu/GGIR/tree/feature/rcpp-enmo). Not yet included in the Docker image (will be integrated after upstream merge or when stability is fully confirmed).
+
+Benchmarked on simulated 7-day 100Hz data (60.5M samples):
+
+| Metric | Original R | Rcpp | Improvement |
+|---|---|---|---|
+| Time per call | 13.8 s | 1.6 s | **8.6x faster** |
+| Peak memory | 7,943 MB | 1,422 MB | **82% less** |
+| Correctness | Reference | max diff < 1e-11 | **PASS** |
+
+The primary value of this optimization is **memory reduction in parallel processing**. Each worker saves ~6.5 GB of transient allocations, allowing significantly more concurrent workers on HPC nodes. On a 128 GB node, this can increase parallelism from ~15 to 30+ workers.
+
+Note: end-to-end Part 1 speedup is modest (~1%) because ENMO computation accounts for only 7% of total runtime. The dominant bottleneck is CWA/CSV file I/O (75%), which is addressed in Phase 3.
+
+### Phase 3: CWA Reader Acceleration 🔧
+
+Targeting `GGIRread::readAxivity`, which accounts for 75% of Part 1 runtime. Profiling breakdown:
+
+- `readBin` (R-level binary I/O): 77.5 s — 490K R function calls for per-block reading
+- `readDataBlock` (block parsing loop): 67.6 s — per-block header/checksum/unpack in R
+- `resample` (interpolation to uniform grid): 26.9 s — already C-implemented in GGIRread
+- `timestampDecoder` + `AxivityNumUnpack` + bit operations: 20 s
+
+A C prototype replacing the per-block R loop with a single-pass C parser achieved **6.1x speedup** (176 s → 29 s) on a 251 MB CWA file. Correctness validation is in progress. This work targets the GGIRread package (separate from GGIR).
+
+Additionally, Part 1 reads each file twice (`g.calibrate` + `g.getmeta`), which doubles I/O cost. A single-read architecture could further halve I/O time.
+
+## Contact
+
+Feel free to reach out on [LinkedIn](https://www.linkedin.com/in/xiaoyu-zong-0a733ba0/)
+
+欢迎研究者联系交流，LinkedIn 加我或者发邮件都可以。
