@@ -10,20 +10,29 @@ FROM rocker/r-ver:4.5.3
 LABEL maintainer="j262byuu@gmail.com" \
       description="GGIR for batch accelerometer data processing with Intel MKL"
 # -----------------------------------------------------------------------------
-# Locale: set UTF-8 to avoid edge cases in GGIR's timestamp parsing
+# Locale & timezone: UTF-8 + UTC to avoid edge cases in GGIR's timestamp parsing
 # -----------------------------------------------------------------------------
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
+ENV TZ=Etc/UTC
 # -----------------------------------------------------------------------------
 # MKL & Threading Environment Variables (CRITICAL FOR GGIR)
-# Restrict MKL to 1 thread per R process to prevent CPU oversubscription.
-# GGIR handles its own parallelization via doParallel (spawning multiple R processes).
-# If MKL also attempts to multithread vector operations inside each process, 
-# it will lead to severe thread contention and crash the performance.
+#
+# GGIR parallelizes via doParallel (forked R workers). Each worker must use a
+# single-threaded BLAS — otherwise N workers × M MKL threads oversubscribes the
+# CPU, and the fork-OpenBLAS-style per-thread buffer bloat eats RAM linearly
+# in N. The whole point of using MKL here is per-process memory footprint.
+#
+# MKL_THREADING_LAYER=SEQUENTIAL: do not load any threading runtime inside MKL.
+#   Stronger than NUM_THREADS=1 alone — no libgomp pulled into the process,
+#   no OpenMP state across fork(), minimum per-worker RSS.
+#
+# MKL_NUM_THREADS / OMP_NUM_THREADS=1: belt-and-suspenders in case any
+#   transitive component outside MKL itself consults these.
 # -----------------------------------------------------------------------------
+ENV MKL_THREADING_LAYER=SEQUENTIAL
 ENV MKL_NUM_THREADS=1
 ENV OMP_NUM_THREADS=1
-ENV MKL_THREADING_LAYER=GNU
 # -----------------------------------------------------------------------------
 # System dependencies
 # Rationale for each:
@@ -50,17 +59,27 @@ RUN apt-get update \
       /usr/share/man/man*
 # -----------------------------------------------------------------------------
 # R packages
-# - Rcpp: required for GGIR's Rcpp-accelerated ENMO path (j262byuu/GGIR fork)
-#         and as a build dependency for packages with compiled code
-# - remotes: needed to install from GitHub
-# - GGIR: installed from official upstream (wadpac/GGIR)
-#         To use the Rcpp-optimized fork instead:
-#         remotes::install_github("j262byuu/GGIR@feature/rcpp-enmo", ...)
+# - Rcpp     : required for GGIR's Rcpp-accelerated ENMO path (j262byuu/GGIR
+#              fork) and as a build dependency for packages with compiled code
+# - remotes  : needed to install from GitHub
+# - unisensR : enables GGIR's Movisens (.unisens) reader; pairs with libxml2-dev
+# - GGIR     : installed from official upstream (wadpac/GGIR)
+#              To use the Rcpp-optimized fork instead:
+#              remotes::install_github("j262byuu/GGIR@feature/rcpp-enmo", ...)
 # - dependencies=NA: only Imports + Depends, skips Suggests
 # - doParallel/foreach pulled in automatically as GGIR Imports
+#
+# Build-time smoke test: load GGIR and check g.shell.GGIR is exported.
+# Fails the build immediately if upstream master is broken or a transitive
+# dep is incompatible — prevents shipping a broken image to users.
+#
+# /etc/ggir-version: stamps installed GGIR version + commit SHA for downstream
+# debugging and methods-section provenance.
 # -----------------------------------------------------------------------------
-RUN install2.r --error --skipinstalled remotes Rcpp \
+RUN install2.r --error --skipinstalled remotes Rcpp unisensR \
  && Rscript -e 'remotes::install_github("wadpac/GGIR", dependencies = NA, upgrade = "never")' \
+ && Rscript -e 'suppressMessages(library(GGIR)); stopifnot(exists("g.shell.GGIR")); cat("GGIR", as.character(packageVersion("GGIR")), "loaded OK\n")' \
+ && Rscript -e 'd <- packageDescription("GGIR"); sha <- if (is.null(d$RemoteSha)) "NA" else d$RemoteSha; cat(sprintf("%s %s\n", d$Version, sha))' > /etc/ggir-version \
  && rm -rf /tmp/downloaded_packages /tmp/Rtmp*
 # -----------------------------------------------------------------------------
 # Singularity/Apptainer notes
