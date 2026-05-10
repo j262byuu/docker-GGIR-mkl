@@ -16,7 +16,7 @@ When using this image, **please cite the original GGIR publications** (doi: 10.5
 docker run --rm \
   -v /your/data:/data \
   -v /your/output:/output \
-  j262byuu/accelerometer:04152026 \
+  j262byuu/accelerometer:05092026 \
   Rscript /data/GGIR.R
 ```
 
@@ -24,7 +24,7 @@ docker run --rm \
 
 ```bash
 # Pull the image
-apptainer pull ggir.sif docker://j262byuu/accelerometer:04152026
+apptainer pull ggir.sif docker://j262byuu/accelerometer:05092026
 
 # Execute on compute node
 apptainer exec \
@@ -35,32 +35,31 @@ apptainer exec \
 
 ## Available Tags
 
-**`04152026` (Latest)** — Rcpp pre-installed for compatibility with the [Rcpp-optimized GGIR fork](https://github.com/j262byuu/GGIR/tree/feature/rcpp-enmo). Intel MKL as default BLAS/LAPACK backend. GGIR installed from official upstream (wadpac/GGIR). `MKL_NUM_THREADS` locked to 1 by default to prevent thread contention during GGIR's file-level parallelization. UTF-8 locale set for timestamp parsing edge cases.
-
-**`04022026`** — Intel MKL integrated. GGIR from official upstream.
-
-**`03262026`** — Rebuilt from scratch with a minimal Dockerfile. Base image upgraded to `rocker/r-ver:4.5.3`. `mMARCH.AC` dropped. Image size reduced from 4.36 GB to 1.8 GB. GGIR pinned to 3.3-4.
-
-**`03092026`** — GGIR 3.3.4. Updated `mMARCH.AC` to 3.3.4.0. Note: avoid versions prior to 3.2.7 due to a start time bug ([issue #1311](https://github.com/wadpac/GGIR/issues/1311)) affecting parts 5 and 6.
-
-**`10142025`** — GGIR 3.3.1. Fix for part 6 failures with multithreading enabled.
-
-**`09182025`** — GGIR 3.3.0. Added auto-correct sleep guider.
-
-**`07242025`** — GGIR 3.2.9. Docker image flattened to reduce size.
+| Tag | GGIR | Notes |
+|-----|------|-------|
+| **05092026** (Latest) | 3.3-7 | Added unisensR for Movisens (.unisens) format support — pairs with `libxml2-dev` that was previously bundled but unused. `MKL_THREADING_LAYER` switched from `GNU` to `SEQUENTIAL`: no OpenMP runtime loaded into R, smaller per-worker RSS under fork-based parallelization. Container TZ explicitly UTC (pass `desiredtz=` to GGIR for participant local time). `/etc/ggir-version` stamps installed GGIR version + upstream commit SHA for provenance. Build-time smoke test prevents shipping broken images. |
+| 04152026 | 3.3-? | Rcpp pre-installed for compatibility with the [Rcpp-optimized GGIR fork](https://github.com/j262byuu/GGIR/tree/feature/rcpp-enmo). Intel MKL as default BLAS/LAPACK backend. GGIR installed from official upstream (wadpac/GGIR). `MKL_NUM_THREADS` locked to 1 by default to prevent thread contention during GGIR's file-level parallelization. UTF-8 locale set for timestamp parsing edge cases. |
+| 04022026 | 3.3-4 | Intel MKL integrated. GGIR from official upstream. |
+| 03262026 | 3.3-4 | Rebuilt from scratch with a minimal Dockerfile. Base image upgraded to `rocker/r-ver:4.5.3`. `mMARCH.AC` dropped. Image size reduced from 4.36 GB to 1.8 GB. |
+| 03092026 | 3.3-4 | `mMARCH.AC` updated to 3.3.4.0. ⚠️ Avoid versions prior to 3.2-7 due to a start time bug ([issue #1311](https://github.com/wadpac/GGIR/issues/1311)) affecting parts 5 and 6. |
+| 10142025 | 3.3-1 | Fix for part 6 failures with multithreading enabled. |
+| 09182025 | 3.3-0 | Added auto-correct sleep guider. |
+| 07242025 | 3.2-9 | Docker image flattened to reduce size. |
 
 <details>
 <summary>Archived Tags</summary>
 
 These tags have been removed from the registry. Listed for reference only.
 
-- `05022025`: GGIR 3.2.6. Sleep regularity index introduced.
-- `01112025`: GGIR 3.1.10.
-- `12042024`: GGIR 3.1.7. Added `part2_eventsummary.csv`.
-- `11152024`: GGIR 3.1.6 (GitHub-only; nonwear_range_threshold reset to 150).
-- `10112024`: Added image.plot fields in module 5 and system-level pandoc.
-- `09172024`: Added rmarkdown and r.jive.
-- `09132024`: GGIR 3.1.4 and mMARCH.AC 2.9.4.0.
+| Tag | GGIR | Notes |
+|-----|------|-------|
+| 05022025 | 3.2-6 | Sleep regularity index introduced. |
+| 01112025 | 3.1-10 | — |
+| 12042024 | 3.1-7 | Added `part2_eventsummary.csv`. |
+| 11152024 | 3.1-6 | GitHub-only; `nonwear_range_threshold` reset to 150. |
+| 10112024 | 3.1-5 | Added `image.plot` fields in module 5 and system-level pandoc. |
+| 09172024 | 3.1-5 | Added rmarkdown and r.jive. |
+| 09132024 | 3.1-4 | mMARCH.AC 2.9.4.0. |
 
 </details>
 
@@ -78,7 +77,11 @@ Systematic profiling of GGIR Part 1 on a 251 MB Axivity CWA file (7-day, 100Hz) 
 
 ### Phase 1: Intel MKL ✅
 
-Replaced default R BLAS/LAPACK with Intel MKL. After profiling GGIR's source code, I confirmed that GGIR's core computations (ENMO, epoch aggregation, non-wear detection) are element-wise vector operations that do not call BLAS. The `g.calibrate` ellipsoid fitting uses `lm.wfit` (QR decomposition), but on matrices of only 3 columns, too small for MKL to make a measurable difference. MKL remains in the image for downstream R workflows (mixed-effects models, PCA, large-scale regression) that do benefit from optimized linear algebra.
+Replaced default R BLAS/LAPACK with Intel MKL. After profiling GGIR's source code, I confirmed that GGIR's core computations (ENMO, epoch aggregation, non-wear detection) are element-wise vector operations that do not call BLAS. The `g.calibrate` ellipsoid fitting uses `lm.wfit` (QR decomposition), but on matrices of only 3 columns, too small for MKL to make a measurable difference.
+
+The primary practical motivation for MKL in this image is **per-worker memory footprint under fork-based parallelization**, not throughput. OpenBLAS pre-allocates per-thread tiling buffers (~32 MB × detected cores) at the first BLAS call; under `mclapply` / `doParallel` fork, copy-on-write triggers across N workers and RAM consumption scales linearly with concurrent workers. MKL with `MKL_THREADING_LAYER=SEQUENTIAL` loads no threading runtime at all — minimum per-worker RSS, predictable cross-fork behavior, more concurrent GGIR workers per HPC node before hitting OOM.
+
+MKL also remains useful for downstream R workflows (mixed-effects models, PCA, large-scale regression) that genuinely benefit from optimized linear algebra.
 
 ### Phase 2: Fused Rcpp ENMO Path ✅ (validated, pending upstream merge)
 
